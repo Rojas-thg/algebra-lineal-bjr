@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Álgebra Lineal · Aplicación educativa</title>
+<link rel="stylesheet" href="styles.css"></head><body>
+
+<section id="cover"><div>
+<div class="mx" style="grid-template-columns:repeat(2,auto)"><span>1</span><span>0</span><span>0</span><span>1</span></div>
+<h1>📐 ÁLGEBRA LINEAL</h1>
+<div class="lema">Aplicación educativa universitaria</div>
+<p class="lema"><b>Comprende • Calcula • Resuelve • Comprueba</b></p>
+<button class="go" onclick="start()">🚀 COMENZAR</button>
+<p class="d">Aplicación interactiva para el aprendizaje y práctica de los conceptos fundamentales del Álgebra Lineal.</p>
+</div></section>
+
+<div id="app" hidden>
+<nav>
+<button class="on" onclick="tab('info',this)">📚 INFORMACIÓN</button>
+<button onclick="tab('eva',this);initQ()">📝 EVALUACIÓN</button>
+<button class="t3" onclick="tab('cal',this)">🧮 CALCULADORA</button>
+<button class="t3" onclick="tab('sis',this)">🔢 RESOLVER SISTEMA</button>
+</nav>
+<main>
+<div id="info" class="v on"></div>
+<div id="eva" class="v"><div class="panel" id="qbox"></div></div>
+<div id="cal" class="v">
+<div class="panel"><h2>🧮 Calculadora de matrices</h2>
+<p>Orden: <select id="csz" onchange="bCal()" style="width:auto"><option value="2">2×2</option><option value="3">3×3</option></select> · Admite enteros, decimales y fracciones (ej. 1/2).</p>
+<div class="row"><div><b>Matriz A</b><div id="gA"></div></div><div><b>Matriz B</b><div id="gB"></div></div></div>
+<button class="btn" onclick="calc('+')">A + B</button><button class="btn" onclick="calc('-')">A − B</button><button class="btn" onclick="calc('*')">A × B</button>
+<button class="btn ac" onclick="calc('det')">|A|</button><button class="btn ac" onclick="calc('t')">Aᵀ</button><button class="btn ac" onclick="calc('inv')">A⁻¹</button></div>
+<div class="panel" id="cout">Elige una operación para ver la solución paso a paso.</div></div>
+<div id="sis" class="v">
+<div class="panel"><h2>🔢 Solucionador por Gauss-Jordan</h2>
+<p>Tamaño: <select id="ssz" onchange="bSys()" style="width:auto"><option value="2">2×2</option><option value="3" selected>3×3</option></select></p>
+<div id="gS"></div><button class="btn ac" onclick="solve()">Resolver</button></div>
+<div class="panel" id="sout">Ingresa el sistema y pulsa Resolver.</div></div>
+</main>
+<footer><div><h3>📖 Bibliografía básica</h3>
+<p>Anton, H. (2011). <i>Introducción al álgebra lineal</i> (3.ª ed.). Limusa.</p>
+<p>Grossman, S. I., & Flores Godoy, J. J. (2012). <i>Álgebra lineal</i> (7.ª ed.). McGraw-Hill.</p>
+<p>Lay, D. C., Lay, S. R., & McDonald, J. J. (2016). <i>Álgebra lineal y sus aplicaciones</i> (5.ª ed.). Pearson.</p>
+<p>Strang, G. (2016). <i>Introduction to linear algebra</i> (5th ed.). Wellesley-Cambridge Press.</p></div></footer>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const gcd=(a,b)=>b?gcd(b,a%b):Math.abs(a);
+const Qf=(n,d=1)=>{if(d<0){n=-n;d=-d}const g=gcd(n,d)||1;return{n:n/g,d:d/g}};
+const add=(a,b)=>Qf(a.n*b.d+b.n*a.d,a.d*b.d),sub=(a,b)=>Qf(a.n*b.d-b.n*a.d,a.d*b.d),mul=(a,b)=>Qf(a.n*b.n,a.d*b.d),dv=(a,b)=>Qf(a.n*b.d,a.d*b.n);
+const ng=n=>n<0?'−'+(-n):''+n;
+const fmt=q=>q.d==1?ng(q.n):(q.n<0?'−':'')+`<span class=fr><i>${Math.abs(q.n)}</i><i>${q.d}</i></span>`;
+const s=x=>typeof x=='number'?ng(x):(x&&x.d!==undefined?fmt(x):x);
+function M(r,a){const c=r[0].length;return `<span class=mx style="grid-template-columns:repeat(${c},auto)">`+r.map(w=>w.map((x,j)=>`<span${a&&j==a-1?' class=sp':''}>${s(x)}</span>`).join('')).join('')+'</span>'}
+const T=t=>`<div class=eq>${t}</div>`,cl=A=>A.map(r=>r.map(x=>({...x})));
+const P=t=>{t=t.trim().replace(',','.');if(t.includes('/')){const[a,b]=t.split('/').map(Number);if(isNaN(a)||!b)return null;return Qf(a,b)}const x=Number(t);if(t===''||isNaN(x))return null;let d=1;while((x*d)%1&&d<1e6)d*=10;return Qf(Math.round(x*d),d)};
+function rd(id,r,c){const v=[...document.querySelectorAll('#'+id+' input')].map(i=>P(i.value));if(v.includes(null))return null;return Array.from({length:r},(_,i)=>v.slice(i*c,i*c+c))}
+/* Gauss-Jordan con pasos */
+function gj(A,nc){const S=[{t:'Matriz inicial.',m:cl(A)}];let r=0;const R=A.length;
+for(let c=0;c<nc&&r<R;c++){let p=-1;for(let i=r;i<R;i++)if(A[i][c].n){p=i;break}if(p<0)continue;
+if(p!=r){[A[p],A[r]]=[A[r],A[p]];S.push({t:`F<sub>${r+1}</sub> ↔ F<sub>${p+1}</sub>: se intercambian filas para tener pivote no nulo en la columna ${c+1}.`,m:cl(A)})}
+const k=A[r][c];if(!(k.n==1&&k.d==1)){A[r]=A[r].map(x=>dv(x,k));S.push({t:`F<sub>${r+1}</sub> → (${fmt(Qf(k.d,k.n))})·F<sub>${r+1}</sub>: se divide la fila entre el pivote para obtener 1.`,m:cl(A)})}
+for(let i=0;i<R;i++){if(i==r||!A[i][c].n)continue;const f=A[i][c],ne=f.n<0,af=Qf(Math.abs(f.n),f.d);A[i]=A[i].map((x,j)=>sub(x,mul(f,A[r][j])));
+S.push({t:`F<sub>${i+1}</sub> → F<sub>${i+1}</sub> ${ne?'+':'−'} (${fmt(af)})·F<sub>${r+1}</sub>: se hace cero el elemento (${i+1},${c+1}).`,m:cl(A)})}r++}
+return{S,rank:r,A}}
+const stp=(S,a)=>S.map((x,i)=>`<div class=st><p><b>${i?'Paso '+i+'.':''}</b> ${x.t}</p>${T(M(x.m,a))}</div>`).join('');
+/* ---------- INFORMACIÓN ---------- */
+const MOD=[
+['📦 Módulo 1 · Matrices',`<p>Una <b>matriz</b> es un arreglo rectangular de números en <b>filas</b> (horizontales) y <b>columnas</b> (verticales). Su <b>orden</b> es <span class=m>m×n</span> (m filas, n columnas). El <b>elemento</b> <span class=m>a<sub>ij</sub></span> está en la fila i, columna j.</p>
+${T('A = '+M([[2,1,3],[0,4,5]]))}<p>A tiene 2 filas y 3 columnas → orden <b>2×3</b>. Además a<sub>13</sub> = 3 y a<sub>22</sub> = 4.</p>
+<div class=g><div class=c><b>Cuadrada</b> (m=n)${T(M([[1,2],[3,4]]))}</div><div class=c><b>Rectangular</b> (m≠n)${T(M([[1,2,3],[4,5,6]]))}</div>
+<div class=c><b>Identidad I</b>${T(M([[1,0],[0,1]]))}</div><div class=c><b>Nula O</b>${T(M([[0,0],[0,0]]))}</div><div class=c><b>Diagonal</b>${T(M([[3,0,0],[0,-2,0],[0,0,5]]))}</div></div>`],
+['➕ Módulo 2 · Operaciones con matrices',`<h4>Suma y resta</h4>${T(M([[1,2],[3,4]])+' + '+M([[5,0],[-1,2]])+' = '+M([[6,2],[2,6]]))}<p>Se opera elemento a elemento: 1+5=6, 2+0=2, 3+(−1)=2, 4+2=6.</p>
+<h4>Multiplicación por un escalar</h4>${T('3'+M([[1,-2],[0,4]])+' = '+M([[3,-6],[0,12]]))}
+<h4>Multiplicación de matrices</h4>${T(M([[2,1,3],[0,4,5]])+M([[1,0],[2,1],[0,3]])+' = '+M([[4,10],[8,19]]))}
+<p>Cada elemento es fila × columna. c<sub>11</sub> = 2·1 + 1·2 + 3·0 = 4; c<sub>12</sub> = 2·0 + 1·1 + 3·3 = 10; c<sub>21</sub> = 0·1 + 4·2 + 5·0 = 8; c<sub>22</sub> = 0·0 + 4·1 + 5·3 = 19. Una matriz 2×3 por una 3×2 da una matriz 2×2.</p>
+<h4>Transpuesta</h4>${T('A = '+M([[2,1,3],[0,4,5]])+' ⟹ Aᵀ = '+M([[2,0],[1,4],[3,5]]))}<p>Las filas pasan a ser columnas: el orden 2×3 se convierte en 3×2.</p>
+<div class=tip>💡 <b>¿Sabías que...?</b> Sumar o restar exige matrices del <b>mismo orden</b>. Multiplicar A·B exige que <b>columnas de A = filas de B</b>; si A es m×n y B es n×p, AB es m×p. Además, en general <b>AB ≠ BA</b>. Multiplicar por un escalar y transponer siempre son posibles.</div>`],
+['🔲 Módulo 3 · Determinantes',`<p>El <b>determinante</b> asigna un número a cada matriz cuadrada. Indica, entre otras cosas, si la matriz es invertible (|A| ≠ 0) y, geométricamente, el factor de escala de área o volumen.</p>
+${T('A = '+M([['a','b'],['c','d']])+' ⟹ |A| = ad − bc')}
+<p>Ejemplo: ${M([[3,2],[1,4]])} → |A| = 3·4 − 2·1 = <b>10</b>.</p>
+<h4>Regla de Sarrus (3×3)</h4><p>Se repiten las dos primeras columnas, se suman los productos de las diagonales descendentes y se restan los de las ascendentes.</p>
+${T('A = '+M([[1,2,3],[0,1,4],[5,6,0]]))}
+${T('|A| = (1·1·0 + 2·4·5 + 3·0·6) − (3·1·5 + 1·4·6 + 2·0·0)')}${T('|A| = 40 − 39 = 1')}
+<h4>Propiedades básicas</h4><ul><li>|Aᵀ| = |A|.</li><li>Si una fila o columna es de ceros, |A| = 0.</li><li>Intercambiar dos filas cambia el signo.</li><li>Dos filas iguales o proporcionales → |A| = 0.</li><li>|AB| = |A|·|B|.</li><li>Multiplicar una fila por k multiplica |A| por k.</li></ul>`],
+['⚖️ Módulo 4 · Sistemas de ecuaciones lineales',`<p>Un <b>sistema lineal</b> es un conjunto de ecuaciones de primer grado con las mismas incógnitas.</p>
+${T('{ 2x + y = 5 ; x − y = 1 }')}
+<p><b>Forma matricial</b> AX = b y <b>matriz aumentada</b> [A | b]:</p>${T(M([[2,1],[1,-1]])+M([['x'],['y']])+' = '+M([[5],[1]])+'&emsp;&emsp;'+M([[2,1,5],[1,-1,1]],2))}
+<div class=g><div class=c><b>Compatible determinado</b><br>Solución única: las rectas se cortan en un punto. Aquí (x,y) = (2,1).</div>
+<div class=c><b>Compatible indeterminado</b><br>Infinitas soluciones: rectas coincidentes. Ej.: x+y=2 y 2x+2y=4.</div>
+<div class=c><b>Incompatible</b><br>Sin solución: rectas paralelas. Ej.: x+y=2 y x+y=5.</div></div>
+<p>Geométricamente, la solución de un sistema 2×2 es el punto donde se cruzan las rectas; en 3×3, la intersección de tres planos.</p>`],
+['🛠️ Módulo 5 · Métodos de resolución',`<p>Sistema de trabajo: ${T('2x + y = 5 ; x − y = 1')}</p>
+<div class=tabs id=mt>${['Sustitución','Eliminación','Gauss','Gauss-Jordan'].map((n,i)=>`<button class="${i?'':'on'}" onclick="mtab(${i})">🔹 ${n}</button>`).join('')}</div>
+<div class="mt on"><b>Procedimiento:</b> despejar una incógnita en una ecuación y sustituirla en la otra.<br>De la 2.ª: x = 1 + y. En la 1.ª: 2(1+y) + y = 5 → 3y = 3 → y = 1. Entonces x = 2.<br><b>Resultado:</b> (x, y) = (2, 1).</div>
+<div class=mt><b>Procedimiento:</b> sumar las ecuaciones para eliminar una incógnita.<br>(2x + y) + (x − y) = 5 + 1 → 3x = 6 → x = 2. Luego 2 − y = 1 → y = 1.<br><b>Resultado:</b> (2, 1).</div>
+<div class=mt><b>Procedimiento:</b> llevar la matriz aumentada a forma escalonada y resolver por sustitución regresiva.${T(M([[2,1,5],[1,-1,1]],2)+' →<sup>F₁↔F₂</sup> '+M([[1,-1,1],[2,1,5]],2)+' →<sup>F₂→F₂−2F₁</sup> '+M([[1,-1,1],[0,3,3]],2))}
+De la última fila: 3y = 3 → y = 1. De la primera: x − 1 = 1 → x = 2. <b>Resultado:</b> (2, 1).</div>
+<div class=mt><b>Procedimiento:</b> continuar hasta la identidad en la parte izquierda.${T(M([[1,-1,1],[0,3,3]],2)+' →<sup>F₂→⅓F₂</sup> '+M([[1,-1,1],[0,1,1]],2)+' →<sup>F₁→F₁+F₂</sup> '+M([[1,0,2],[0,1,1]],2))}
+<p><b>Significado de las operaciones:</b> F₂→F₂−2F₁ resta dos veces la fila 1 a la fila 2 para anular un elemento (es lo mismo que eliminar x en la 2.ª ecuación); F₂→⅓F₂ escala la fila para obtener un pivote 1; F₁↔F₂ intercambia ecuaciones. Ninguna altera la solución.</p><b>Resultado:</b> x = 2, y = 1. Prueba el solucionador con un sistema 3×3.</div>`],
+['🔁 Módulo 6 · Inversa de una matriz',`<p>La <b>inversa</b> de A es la matriz A⁻¹ tal que ${'<span class=m>A·A⁻¹ = A⁻¹·A = I</span>'}. Existe solo si A es cuadrada y <b>|A| ≠ 0</b> (matriz no singular).</p>
+<h4>Método con determinante (2×2)</h4>${T('A⁻¹ = '+'<span class=fr><i>1</i><i>ad−bc</i></span>'+M([['d','−b'],['−c','a']]))}
+<p>Ejemplo: A = ${M([[2,1],[5,3]])}, |A| = 6 − 5 = 1, entonces ${T('A⁻¹ = '+M([[3,-1],[-5,2]]))}</p>
+<h4>Método de Gauss-Jordan: [A | I] → [I | A⁻¹]</h4><p>Ejemplo 3×3 con A = ${M([[1,0,2],[0,1,3],[0,0,1]])}:</p>
+${T(M([[1,0,2,1,0,0],[0,1,3,0,1,0],[0,0,1,0,0,1]],3)+' →<sup>F₁→F₁−2F₃<br>F₂→F₂−3F₃</sup> '+M([[1,0,0,1,0,-2],[0,1,0,0,1,-3],[0,0,1,0,0,1]],3))}
+${T('A⁻¹ = '+M([[1,0,-2],[0,1,-3],[0,0,1]]))}<p>Usa la calculadora para comprobar otras matrices.</p>`],
+['➡️ Módulo 7 · Vectores',`<p>Un <b>vector</b> es una magnitud con módulo, dirección y sentido. En ℝ² tiene 2 componentes <span class=m>u = (u₁, u₂)</span>; en ℝ³, tres: <span class=m>(u₁, u₂, u₃)</span>.</p>
+${T('u = (3, 4) ⟹ |u| = √(3² + 4²) = √25 = 5')}
+<p><b>Suma y resta</b> componente a componente; <b>escalar</b>: k·u = (ku₁, ku₂). Ej.: (3,4) + (1,−2) = (4,2); 2·(3,4) = (6,8). En ℝ³: |u| = √(u₁²+u₂²+u₃²).</p>
+<div class=panel style="background:var(--lb)"><b>Plano interactivo</b> — modifica los componentes:
+<div class=row style="align-items:center"><div style="display:grid;grid-template-columns:auto 70px 70px;gap:6px;align-items:center"><span>u =</span><input id=ux type=number value=3><input id=uy type=number value=4><span>v =</span><input id=vx type=number value=1><input id=vy type=number value=-2></div>
+<svg id=pl viewBox="-7 -7 14 14" width=300 height=300 style="background:#fff;border-radius:10px;max-width:100%"></svg></div><div id=vo class=eq style="font-size:20px"></div></div>`],
+['🌎 ÁLGEBRA LINEAL EN LA VIDA REAL',`<div class=g>
+<div class=c style="text-align:left"><b>⚙️ Ingeniería</b><br>Las estructuras (puentes, armaduras) y los circuitos eléctricos se modelan con sistemas lineales AX = b: las leyes de Kirchhoff o el equilibrio de fuerzas producen decenas de ecuaciones que se resuelven con matrices.</div>
+<div class=c style="text-align:left"><b>📈 Economía y administración</b><br>El modelo insumo-producto de Leontief usa matrices para saber cuánto debe producir cada sector. También se emplean en optimización de recursos y análisis de carteras.</div>
+<div class=c style="text-align:left"><b>🤖 Computación e IA</b><br>Las imágenes son matrices de píxeles; las redes neuronales multiplican matrices de pesos por vectores de datos; los buscadores y sistemas de recomendación se basan en vectores y matrices.</div>
+<div class=c style="text-align:left"><b>🔭 Física</b><br>Las fuerzas, velocidades y campos son vectores; las rotaciones y transformaciones se representan con matrices; la mecánica cuántica trabaja con vectores y matrices de operadores.</div></div>`]];
+$('info').innerHTML=MOD.map((m,i)=>`<details ${i?'':'open'}><summary>${m[0]}</summary><div class=bd>${m[1]}</div></details>`).join('');
+function mtab(i){document.querySelectorAll('.mt').forEach((e,k)=>e.classList.toggle('on',k==i));document.querySelectorAll('#mt button').forEach((e,k)=>e.classList.toggle('on',k==i))}
+function drawV(){const g=id=>+$(id).value||0,u=[g('ux'),g('uy')],v=[g('vx'),g('vy')];let h='<defs><marker id=a viewBox="0 0 6 6" refX=5 refY=3 markerWidth=5 markerHeight=5 orient=auto><path d="M0 0L6 3 0 6z" fill=context-stroke /></marker></defs>';
+for(let i=-6;i<=6;i++)h+=`<line x1=${i} y1=-6 x2=${i} y2=6 stroke="#e3e9f5" stroke-width=.05 /><line x1=-6 y1=${i} x2=6 y2=${i} stroke="#e3e9f5" stroke-width=.05 />`;
+h+='<line x1=-6.5 y1=0 x2=6.5 y2=0 stroke=#333 stroke-width=.08 /><line x1=0 y1=6.5 x2=0 y2=-6.5 stroke=#333 stroke-width=.08 />';
+const ar=(p,c,d)=>`<line x1=0 y1=0 x2=${p[0]} y2=${-p[1]} stroke="${c}" stroke-width=.18 marker-end="url(#a)" ${d?'stroke-dasharray=".4 .3"':''} />`;
+$('pl').innerHTML=h+ar(u,'#1f5fbf')+ar(v,'#f5a524')+ar([u[0]+v[0],u[1]+v[1]],'#12805c',1)+`<text x=${u[0]} y=${-u[1]-.4} fill=#1f5fbf font-size=.9>u</text><text x=${v[0]} y=${-v[1]-.4} fill=#c07d00 font-size=.9>v</text>`;
+const n=x=>+x.toFixed(3);$('vo').innerHTML=`|u| = ${n(Math.hypot(...u))} · |v| = ${n(Math.hypot(...v))}<br>u + v = (${u[0]+v[0]}, ${u[1]+v[1]}) · u − v = (${u[0]-v[0]}, ${u[1]-v[1]})`}
+['ux','uy','vx','vy'].forEach(i=>$(i).addEventListener('input',drawV));drawV();
+/* ---------- NAVEGACIÓN ---------- */
+function start(){$('cover').style.display='none';$('app').hidden=false;scrollTo(0,0)}
+function tab(id,b){document.querySelectorAll('.v').forEach(e=>e.classList.toggle('on',e.id==id));document.querySelectorAll('nav button').forEach(e=>e.classList.toggle('on',e==b));scrollTo(0,0)}
+/* ---------- EVALUACIÓN ---------- */
+const m2=(a,b,c,d)=>M([[a,b],[c,d]]);
+const Q=[
+{q:`La matriz ${M([[2,1,3],[0,4,5]])} tiene como orden:`,o:['3×2','2×3','2×2'],c:1,e:'El orden se da como (filas)×(columnas). A tiene 2 filas y 3 columnas, luego su orden es 2×3. Error común: invertir el orden.'},
+{q:'¿Cuál de las siguientes es una matriz diagonal?',o:[m2(3,1,0,-2),m2(3,0,0,-2),M([[1,0,0],[0,1,0]])],c:1,e:'Una matriz diagonal es cuadrada y tiene ceros fuera de la diagonal principal. La opción A tiene un 1 sobre la diagonal y la C no es cuadrada (2×3).'},
+{q:`Dadas A = ${m2(1,2,3,4)} y B = ${m2(0,1,-1,2)}, calcula 2A − B.`,o:[m2(2,5,5,10),m2(2,3,7,6),m2(2,3,5,6)],c:1,e:'2A = (2, 4; 6, 8). Restando B elemento a elemento: 2−0=2, 4−1=3, 6−(−1)=7, 8−2=6. Cuidado con el signo al restar el −1.'},
+{q:`Si A = ${m2(1,2,0,3)} y B = ${m2(2,1,1,0)}, ¿cuánto vale AB?`,o:[m2(4,1,3,0),m2(2,7,1,2),m2(2,2,0,0)],c:0,e:'Fila por columna: c₁₁=1·2+2·1=4, c₁₂=1·1+2·0=1, c₂₁=0·2+3·1=3, c₂₂=0·1+3·0=0. La opción B es BA (la multiplicación no es conmutativa) y la C multiplica elemento a elemento, que no es el producto matricial.'},
+{q:`Calcula el determinante de ${M([[2,1,3],[0,4,5],[1,0,2]])}.`,o:['21','−9','9'],c:2,e:'Sarrus: diagonales descendentes 2·4·2 + 1·5·1 + 3·0·0 = 16 + 5 + 0 = 21. Ascendentes: 3·4·1 + 2·5·0 + 1·0·2 = 12. Entonces |A| = 21 − 12 = 9.'},
+{q:'La solución del sistema 2x + y = 5, x − y = 1 es:',o:['(x, y) = (2, 1)','(x, y) = (1, 3)','(x, y) = (3, −1)'],c:0,e:'Sumando ambas ecuaciones: 3x = 6, x = 2; luego y = x − 1 = 1. Comprobación: 2·2+1 = 5 y 2−1 = 1. (1,3) cumple solo la primera ecuación; (3,−1) cumple solo la primera.'},
+{q:'Clasifica el sistema x + y = 2, 2x + 2y = 5:',o:['Compatible determinado','Compatible indeterminado','Incompatible'],c:2,e:'Al hacer F₂ → F₂ − 2F₁ se obtiene 0x + 0y = 1, es decir 0 = 1, una contradicción. Las rectas son paralelas y no coinciden: el sistema no tiene solución.'},
+{q:`Se aplica Gauss a ${M([[1,2,3],[2,5,8]],2)}. Tras F₂ → F₂ − 2F₁, la segunda fila queda:`,o:['(0  1 | 2)','(4  9 | 14)','(0  1 | 5)'],c:0,e:'F₂ − 2F₁ = (2−2·1, 5−2·2 | 8−2·3) = (0, 1 | 2). La respuesta correcta es correcta porque la operación hace cero el primer elemento de la fila 2. La opción B resulta de sumar (F₂ + 2F₁).'},
+{q:`Al reducir ${M([[1,1,3],[1,-1,1]],2)} a la forma escalonada reducida (Gauss-Jordan) se obtiene:`,o:[M([[1,1,3],[0,1,2]],2),M([[1,0,2],[0,1,1]],2),M([[1,0,1],[0,1,2]],2)],c:1,e:'F₂→F₂−F₁ da (0, −2 | −2); F₂→−½F₂ da (0, 1 | 1); F₁→F₁−F₂ da (1, 0 | 2). Solución x = 2, y = 1. La opción A solo llega a forma escalonada, sin ceros sobre el pivote.'},
+{q:'Dos fuerzas actúan sobre un cuerpo: F₁ = (3, 1) N y F₂ = (1, 2) N. ¿Cuál es el módulo de la fuerza resultante?',o:['7 N','3,5 N','5 N'],c:2,e:'La resultante es la suma de vectores: (3+1, 1+2) = (4, 3). Su módulo es √(4²+3²) = √25 = 5 N. No se suman los módulos de cada fuerza, porque las direcciones difieren.'}];
+let qi=0,sc=0,t0=0,lock=0;
+function initQ(){if(!$('qbox').innerHTML)showQ()}
+function resetQ(){qi=0;sc=0;t0=Date.now();showQ()}
+function showQ(){if(!t0)t0=Date.now();lock=0;const q=Q[qi];$('qbox').innerHTML=`<div class=bar><i style="width:${qi*10}%"></i></div><p>Pregunta ${qi+1} de 10</p><div class=qt>${q.q}</div>`+q.o.map((o,i)=>`<button class=op onclick="pick(${i})"><b>${'ABC'[i]}</b><span>${o}</span></button>`).join('')+'<div id=fb></div>'}
+function pick(i){if(lock)return;lock=1;const q=Q[qi],ok=i==q.c,B=document.querySelectorAll('.op');B[q.c].classList.add('ok');if(!ok)B[i].classList.add('bad');if(ok)sc++;
+$('fb').innerHTML=`<div class="fb ${ok?'ok':'bad'}"><b>${ok?'✅ RESPUESTA CORRECTA':'❌ RESPUESTA INCORRECTA'}</b><p>${q.e}</p></div><button class="btn ac" onclick="nextQ()">${qi==9?'Ver resultado':'Siguiente'}</button>`}
+function nextQ(){qi++;qi<10?showQ():fin()}
+function fin(){const sec=Math.round((Date.now()-t0)/1000),p=sc*10,lv=sc>=9?'Dominio excelente':sc>=7?'Buen dominio':sc>=5?'Dominio básico':'Requiere reforzamiento';
+$('qbox').innerHTML=`<div class=res><h2>🎯 RESULTADO</h2><div class=big>${sc}/10</div><p>Porcentaje: <b>${p} %</b></p><p>✅ Correctas: ${sc} · ❌ Incorrectas: ${10-sc}</p><p>⏱ Tiempo empleado: ${Math.floor(sec/60)} min ${sec%60} s</p><p><b>Nivel de desempeño: ${lv}</b></p><button class="btn ac" onclick="resetQ()">🔄 INTENTAR NUEVAMENTE</button><button class="btn" onclick="tab('info',document.querySelector('nav button'))">📚 REPASAR CONTENIDOS</button></div>`}
+/* ---------- CALCULADORA ---------- */
+const DA={2:[[1,2],[3,4]],3:[[2,1,3],[0,4,5],[1,0,2]]},DB={2:[[0,1],[-1,2]],3:[[1,0,2],[0,1,1],[1,2,0]]};
+function bCal(){const n=+$('csz').value;[['gA',DA],['gB',DB]].forEach(([id,D])=>$(id).innerHTML=`<div class=ig style="grid-template-columns:repeat(${n},70px)">`+D[n].flat().map(v=>`<input value="${v}" inputmode=decimal>`).join('')+'</div>')}
+const dt=A=>A.length==2?sub(mul(A[0][0],A[1][1]),mul(A[0][1],A[1][0])):(()=>{const a=A,p=(x,y,z)=>mul(mul(x,y),z);return sub(add(add(p(a[0][0],a[1][1],a[2][2]),p(a[0][1],a[1][2],a[2][0])),p(a[0][2],a[1][0],a[2][1])),add(add(p(a[0][2],a[1][1],a[2][0]),p(a[0][0],a[1][2],a[2][1])),p(a[0][1],a[1][0],a[2][2])))})();
+function calc(op){const n=+$('csz').value,A=rd('gA',n,n),B=rd('gB',n,n),o=$('cout');if(!A||!B){o.innerHTML='⚠️ Revisa los valores: usa números o fracciones como 1/2.';return}let h='';
+if(op=='+'||op=='-'){const sg=op=='+'?'+':'−',f=op=='+'?add:sub;h=`<h3>${op=='+'?'Suma':'Resta'} A ${sg} B</h3><h4>Paso 1. Mismo orden (${n}×${n}): se opera elemento a elemento</h4>`+T(M(A.map((r,i)=>r.map((x,j)=>`${fmt(x)} ${sg} (${fmt(B[i][j])})`))))+'<h4>Paso 2. Resultado</h4>'+T('A '+sg+' B = '+M(A.map((r,i)=>r.map((x,j)=>f(x,B[i][j])))))}
+else if(op=='*'){const C=A.map((r,i)=>r.map((_,j)=>A[i].reduce((a,x,k)=>add(a,mul(x,B[k][j])),Qf(0))));h='<h3>Producto A · B</h3><h4>Paso 1. Cada elemento = fila de A × columna de B</h4>'+T(M(A.map((r,i)=>r.map((_,j)=>A[i].map((x,k)=>`${fmt(x)}·(${fmt(B[k][j])})`).join(' + '))))) +'<h4>Paso 2. Resultado</h4>'+T('A·B = '+M(C))}
+else if(op=='det'){const a=A;h='<h3>Determinante de A</h3>'+T('A = '+M(A));if(n==2)h+=T(`|A| = a·d − b·c = ${fmt(a[0][0])}·${fmt(a[1][1])} − ${fmt(a[0][1])}·${fmt(a[1][0])}`);else{const p=(x,y,z)=>mul(mul(x,y),z),L=(l)=>l.map(t=>fmt(p(...t))).join(' + ');const d=[[a[0][0],a[1][1],a[2][2]],[a[0][1],a[1][2],a[2][0]],[a[0][2],a[1][0],a[2][1]]],u=[[a[0][2],a[1][1],a[2][0]],[a[0][0],a[1][2],a[2][1]],[a[0][1],a[1][0],a[2][2]]];
+h+='<h4>Regla de Sarrus</h4>'+T('Diagonales descendentes: '+L(d)+' = '+fmt(d.map(t=>p(...t)).reduce(add)))+T('Diagonales ascendentes: '+L(u)+' = '+fmt(u.map(t=>p(...t)).reduce(add)))}
+h+='<h4>Resultado</h4>'+T('|A| = '+fmt(dt(A)))}
+else if(op=='t'){h='<h3>Transpuesta</h3><p>Las filas de A se convierten en columnas.</p>'+T('A = '+M(A)+' ⟹ Aᵀ = '+M(A[0].map((_,j)=>A.map(r=>r[j]))))}
+else{const d=dt(A);h='<h3>Inversa de A</h3>'+T('|A| = '+fmt(d));if(!d.n)h+='<p>❌ |A| = 0: la matriz es singular y <b>no tiene inversa</b>.</p>';else{h+='<p>|A| ≠ 0, la inversa existe. Se aplica Gauss-Jordan a [A | I]:</p>';const R=gj(A.map((r,i)=>[...r,...r.map((_,j)=>Qf(i==j?1:0))]),n);h+=stp(R.S,n)+'<h4>Resultado</h4>'+T('A⁻¹ = '+M(R.A.map(r=>r.slice(n))))}}
+o.innerHTML=h}
+/* ---------- SISTEMAS ---------- */
+const DS={2:[[2,1,5],[1,-1,1]],3:[[2,1,-1,3],[1,2,1,4],[3,-1,2,5]]};
+function bSys(){const n=+$('ssz').value,V=['x','y','z'];$('gS').innerHTML=DS[n].map(r=>`<div class=srow>`+r.map((v,j)=>`<input value="${v}" inputmode=decimal>`+(j<n-1?`<span>${V[j]} +</span>`:j==n-1?`<span>${V[j]} =</span>`:'')).join('')+'</div>').join('')}
+function solve(){const n=+$('ssz').value,V=['x','y','z'],A=rd('gS',n,n+1),o=$('sout');if(!A){o.innerHTML='⚠️ Revisa los valores: usa números o fracciones como 1/2.';return}
+const R=gj(cl(A),n);let h='<h3>Matriz aumentada → operaciones elementales → forma escalonada reducida</h3>'+stp(R.S,n);const F=R.A;
+const inc=F.some(r=>r.slice(0,n).every(x=>!x.n)&&r[n].n);h+='<h4>Conclusión</h4>';
+if(inc)h+='<p>❌ <b>Sistema incompatible</b>: aparece una fila (0 … 0 | k) con k ≠ 0, es decir 0 = k. No hay solución.</p>';
+else if(R.rank<n)h+=`<p>♾️ <b>Sistema compatible indeterminado</b>: el rango (${R.rank}) es menor que el número de incógnitas (${n}). Hay infinitas soluciones con ${n-R.rank} variable(s) libre(s); la matriz reducida las describe.</p>`;
+else h+='<p>✅ <b>Sistema compatible determinado</b>: solución única.</p>'+T(F.map((r,i)=>`${V[i]} = ${fmt(r[n])}`).join('&emsp;&emsp;'));
+o.innerHTML=h}
+bCal();bSys();
+</script></body></html>
